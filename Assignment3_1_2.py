@@ -19,58 +19,85 @@ def performance_calculator(types, target, predict):
 			if target[i] == predict[i]:
 				confmatrix[chosen] += [1,0,0,-1]
 			else:
-				confmatrix[chosen] += [0,1,0,-1]
-				confmatrix[np.where(list_class==predict[i])] += [0,0,1,-1]
+				confmatrix[chosen] += [0,0,1,-1]
+				confmatrix[np.where(list_class==predict[i])] += [0,1,0,-1]
 		if types == 0:
-			confmatrix = confmatrix.sum(axis=0)
-			precision = confmatrix[0] / (confmatrix[0] + confmatrix[2])
-			recall = confmatrix[0] / (confmatrix[0] + confmatrix[1])
+			precision = confmatrix[:,0].sum() / (confmatrix[:,0].sum() + confmatrix[:,1].sum())
+			recall =  confmatrix[:,0].sum() / (confmatrix[:,0].sum() + confmatrix[:,2].sum())
 		else:
-			precision = (confmatrix[:,0] / (confmatrix[:,0] + confmatrix[:,2])).sum()/confmatrix.shape[0]
-			recall =  (confmatrix[:,0] / (confmatrix[:,0] + confmatrix[:,1])).sum()/confmatrix.shape[0]
-		return 2*(precision * recall)/(precision + recall)
+			precision,recall = [], []
+			for i in confmatrix:
+				precision.append(i[0]/(i[0]+i[1]))
+				recall.append(i[0]/(i[0]+i[2]))
+			precision = np.average(precision)
+			recall = np.average(recall)
+		return 2 * (precision * recall)/(precision + recall)
 
-def visualize_data(data,decisionboundary=False):
-	figure = plt.figure()
+def visualize_data(data,name,decisionboundary=False,boundaryresult=None,modelfunc=None):
+	fig, x = plt.subplots()
+	fig.suptitle(name)
 	list_class = np.unique(data[:,2].astype('i'))
 	colors = ['r', 'g', 'b', 'y', 'k', 'c']
 	marker = ['o', 's', '*']
 	mcounter, ccounter = 0,0
+
+	if (decisionboundary):
+		h = 0.1
+		maxmin = np.array([data.max(axis=0)+1,data.min(axis=0)-1])
+		xx, yy = np.meshgrid(np.arange(maxmin[1,0], maxmin[0,0], h),
+		                     np.arange(maxmin[1,1], maxmin[0,1], h))
+		Z = np.array(modelfunc[1](np.c_[xx.ravel(), yy.ravel()],modelfunc[0]))
+
+		# Put the result into a color plot
+		Z = Z.reshape(xx.shape)
+		x.contourf(xx, yy, Z, cmap=plt.cm.Paired)
+		x.axis('off')
+
 	for i in list_class:
 		data_class = data[data[:,2] == i]
-		plt.scatter(data_class[:,0], data_class[:,1], c=colors[(ccounter) % 6], marker=marker[(mcounter) % 3])
+		x.scatter(data_class[:,0], data_class[:,1], c=colors[(ccounter) % 6], marker=marker[(mcounter) % 3])
 		ccounter += 1
 		if(ccounter % 3 == 0): mcounter += 1
-	if (decisionboundary):
-		boundary = np.array([data.max(axis=0),data.min(axis=0)])
-		plt.plot([boundary[0,0],boundary[1,0]],[boundary[0,1],boundary[1,1]])
 
-class naive_bayes:
-	def __init__(self, data, targetcol):
-		self.data = data
-		self.targetcol = targetcol
-		self.prior = {}
-		self.mean = {}
-		self.variance = {}
-		self.learning()
-		# self.predict()
+		# Plot also the training points
+		# plt.scatter(X[:, 0], X[:, 1], c=Y, cmap=pl.cm.Paired)
 
-	def learning(self):
-		self.list_class = np.unique(data[:,self.targetcol].astype('i'))
-		dataperclass = {}
-		for i in self.list_class:
-			dataperclass[i] = data[data[:,2] == i]
-			self.prior[i] = dataperclass[i].shape[0] / (data.shape[0] + 0.0)
-			self.mean[i] = [np.mean(dataperclass[i][:,j]) for j in xrange(dataperclass[i].shape[1] - 1)]
-			self.variance[i] = [np.var(dataperclass[i][:,j],ddof=1) for j in xrange(dataperclass[i].shape[1] - 1)]
+def naive_learn(data, targetcol):
+	list_class = np.unique(data[:,targetcol].astype('i'))
+	dataperclass,prior,mean,std = {},{},{},{}
+	likelihood = []
 
-	def predict(self,values):
-		predict_result = {}
-		for i in self.list_class:
-			predict_result[i] = np.log(self.prior[i]) + np.sum([np.log(1/(np.sqrt(2*np.pi*np.sqrt(self.variance[i][j])))*np.exp(((values[j]-self.mean[i][j])**2)/(2*self.variance[i][j]))) for j in xrange(values.shape[0]-1)])
-		print predict_result, max(predict_result, key=predict_result.get)
+	for i in list_class:
+		dataperclass[i] = data[data[:,targetcol] == i]
+		prior[i] = dataperclass[i].shape[0] / (data.shape[0] + 0.0)
+		mean[i] = [np.mean(dataperclass[i][:,j]) for j in xrange(dataperclass[i].shape[1] - 1)]
+		std[i] = [np.std(dataperclass[i][:,j]) for j in xrange(dataperclass[i].shape[1] - 1)]
 
-data = np.genfromtxt('jain.csv',delimiter=',')
-nb = naive_bayes(data, 2)
-print data[1]
-nb.predict(data[1])
+	return prior,mean,std
+
+def naive_bayes(data, model):
+	prior, mean, std = model
+	classification_result = []
+	gausbayes = lambda m,sd,x: (1/(sd*np.sqrt(2*np.pi)))*np.exp(-(((x-m)**2)/(2*sd**2)))
+	likelihood = []
+
+	for values in data:
+		likelihood.append({i: [gausbayes(mean[i][j],std[i][j],values[j]) for j in xrange(len(mean[i]))] for i in prior.keys()})
+
+	for x in xrange(data.shape[0]):
+		posterior = {}
+		for i in prior.keys():
+			posterior[i] = np.log(prior[i]) + np.sum(np.log(likelihood[x][i]))
+		classification_result.append(max(posterior, key=posterior.get))
+	return classification_result
+
+data = np.genfromtxt('pathbased.csv',delimiter=',')
+model = naive_learn(data, 2)
+classification = naive_bayes(data, model)
+dataclassification = np.copy(data)
+dataclassification[:,-1] = classification
+visualize_data(data,'PathBased Plot')
+visualize_data(dataclassification,'PathBased Naive Bayes')
+print performance_calculator(0, data[:,-1], classification)
+visualize_data(data,'PathBased DecisionBoundary with Naive Bayes',True,classification,[model,naive_bayes])
+plt.show()
