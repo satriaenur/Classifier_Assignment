@@ -48,7 +48,6 @@ def visualize_data(data,name,decisionboundary=False,boundaryresult=None,modelfun
 		                     np.arange(maxmin[1,1], maxmin[0,1], h))
 		Z = np.array(modelfunc[1](np.c_[xx.ravel(), yy.ravel()],modelfunc[0]))
 
-		# Put the result into a color plot
 		Z = Z.reshape(xx.shape)
 		x.contourf(xx, yy, Z, cmap=plt.cm.Paired)
 		x.axis('off')
@@ -59,8 +58,6 @@ def visualize_data(data,name,decisionboundary=False,boundaryresult=None,modelfun
 		ccounter += 1
 		if(ccounter % 3 == 0): mcounter += 1
 
-		# Plot also the training points
-		# plt.scatter(X[:, 0], X[:, 1], c=Y, cmap=pl.cm.Paired)
 
 def naive_learn(data, targetcol):
 	list_class = np.unique(data[:,targetcol].astype('i'))
