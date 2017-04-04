@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import random as rnd
 
 # types: 0 = F1-Micro, 1 = F1-Macro, 2 = Simple Accuracy
 def performance_calculator(types, target, predict):
@@ -88,13 +89,35 @@ def naive_bayes(data, model):
 		classification_result.append(max(posterior, key=posterior.get))
 	return classification_result
 
-data = np.genfromtxt('Classification_datasets\D31.csv',delimiter=',')
-model = naive_learn(data, 2)
-classification = naive_bayes(data, model)
-dataclassification = np.copy(data)
-dataclassification[:,-1] = classification
-visualize_data(data,'PathBased Plot')
-visualize_data(dataclassification,'PathBased Naive Bayes')
-print performance_calculator(0, data[:,-1], classification)
-visualize_data(data,'PathBased DecisionBoundary with Naive Bayes',True,classification,[model,naive_bayes])
-plt.show()
+def ann_learn(data, targetcol):
+	list_class = np.unique(data[:,targetcol].astype('i'))
+	# configurasi
+	hidden_neuron = [4] #panjang array = jumlah layer
+	output_neuron = list_class.shape[0]
+	lr = 0.01
+	eppoch = 100
+	msetreshold = 10**-2
+
+	# inisialisasi
+	hinput = [data.shape[1] - 1 if i == 0 else hidden_neuron[i-1] for i in range(len(hidden_neuron))]
+	whidden = np.array([[[rnd.random() for k in xrange(data.shape[1] - 1) if i==0 else rnd.random() for k in xrange(hidden_neuron[i-1])] for j in xrange(hidden_neuron[i])] for i in xrange(len(hidden_neuron))])
+	woutput = np.array([[rnd.random() for j in xrange(hidden_neuron[-1])] for i in xrange(output_neuron)])
+
+
+	print whidden
+	print woutput
+	# for i in xrange(eppoch):
+
+
+
+
+data = np.genfromtxt('R15.csv',delimiter=',')
+model = ann_learn(data, 2)
+# classification = naive_bayes(data, model)
+# dataclassification = np.copy(data)
+# dataclassification[:,-1] = classification
+# visualize_data(data,'PathBased Plot')
+# visualize_data(dataclassification,'PathBased Naive Bayes')
+# print performance_calculator(0, data[:,-1], classification)
+# visualize_data(data,'PathBased DecisionBoundary with Naive Bayes',True,classification,[model,naive_bayes])
+# plt.show()
