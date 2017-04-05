@@ -89,10 +89,10 @@ def naive_bayes(data, model):
 		classification_result.append(max(posterior, key=posterior.get))
 	return classification_result
 
-def ann_learn(data, targetcol):
+def ann_learn(data, targetcol, bias = False):
 	list_class = np.unique(data[:,targetcol].astype('i'))
 	# configurasi
-	hidden_neuron = [4] #panjang array = jumlah layer
+	hidden_neuron = [4,3] #panjang array = jumlah layer
 	output_neuron = list_class.shape[0]
 	lr = 0.01
 	eppoch = 100
@@ -100,15 +100,40 @@ def ann_learn(data, targetcol):
 
 	# inisialisasi
 	hinput = [data.shape[1] - 1 if i == 0 else hidden_neuron[i-1] for i in range(len(hidden_neuron))]
-	whidden = np.array([[[rnd.random() for k in xrange(data.shape[1] - 1) if i==0 else rnd.random() for k in xrange(hidden_neuron[i-1])] for j in xrange(hidden_neuron[i])] for i in xrange(len(hidden_neuron))])
+	whidden = np.array([[[rnd.random() for k in xrange(hinput[i])] for j in xrange(hidden_neuron[i])] for i in xrange(len(hidden_neuron))])
 	woutput = np.array([[rnd.random() for j in xrange(hidden_neuron[-1])] for i in xrange(output_neuron)])
+	if (bias):
+		bhidden = [[rnd.random() for j in xrange(hidden_neuron[i])]for i in xrange(len(hidden_neuron))]
+		boutput = [rnd.random() for i in xrange(output_neuron)]
+	MSE = 0
 
-
-	print whidden
-	print woutput
+	# start learning
 	# for i in xrange(eppoch):
+	for cd in data:
+		# Forward
+		p = cd[:-1]
+		target = cd[-1]
+		A1 = []
+		for hlayer in range(len(hidden_neuron)):
+			v = np.sum(p * whidden[hlayer], axis=1)
+			p = 1/(1 + np.exp(-v))
+			A1.append(p)
 
+		A1 = np.array(A1)
 
+		v = np.sum(p * woutput,axis=1)
+		A2 = np.array(1/(1 + np.exp(-v)))
+
+		# count error
+		e = [1 if (i+1)==target else 0 for i in xrange(A2.shape[0])] - A2
+		MSE += np.sum(e)**2
+
+		# Backward
+		D2 = A2*(1 - A2)*e
+		D1 = []
+		for hlayer in range(len(hidden_neuron)):
+			d1temp = A1[-(hlayer+1)]
+	MSE = MSE/data.shape[0]
 
 
 data = np.genfromtxt('R15.csv',delimiter=',')
