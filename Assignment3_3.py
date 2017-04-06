@@ -90,58 +90,90 @@ def naive_bayes(data, model):
 	return classification_result
 
 def ann_learn(data, targetcol, bias = False):
+	np.random.shuffle(data)
 	list_class = np.unique(data[:,targetcol].astype('i'))
 	# configurasi
-	hidden_neuron = [4,3] #panjang array = jumlah layer
+	hidden_neuron = [5,6] #panjang array = jumlah layer
 	output_neuron = list_class.shape[0]
 	lr = 0.01
-	eppoch = 100
-	msetreshold = 10**-2
+	eppoch = 500
+	f,pl = plt.subplots()
+	# msetreshold = 10**-2
 
 	# inisialisasi
+	targetjob = [[2 if (j+1)==list_class[i] else 0 for j in xrange(list_class.shape[0])] for i in range(list_class.shape[0])]
 	hinput = [data.shape[1] - 1 if i == 0 else hidden_neuron[i-1] for i in range(len(hidden_neuron))]
-	whidden = np.array([[[rnd.random() for k in xrange(hinput[i])] for j in xrange(hidden_neuron[i])] for i in xrange(len(hidden_neuron))])
-	woutput = np.array([[rnd.random() for j in xrange(hidden_neuron[-1])] for i in xrange(output_neuron)])
-	bhidden = np.array([[rnd.random() if bias else 0 for j in xrange(hidden_neuron[i])]for i in xrange(len(hidden_neuron))])
+	whidden = [np.random.uniform(-1,1,(hidden_neuron[i],hinput[i])) for i in xrange(len(hidden_neuron))]
+	woutput = np.random.uniform(-1,1,(output_neuron,hidden_neuron[-1]))
+	bhidden = [[rnd.random() if bias else 0 for j in xrange(hidden_neuron[i])]for i in xrange(len(hidden_neuron))]
 	boutput = np.array([rnd.random() if bias else 0 for i in xrange(output_neuron)])
 	MSE = 0
-
 	# start learning
-	# for i in xrange(eppoch):
+	for i in xrange(eppoch):
+		for cd in data:
+			p = np.copy(cd[:-1])
+			target = cd[-1].astype('i')
+			A1 = []
+
+			# Forward
+			for hlayer in range(len(whidden)):
+				v = np.dot(p,whidden[hlayer].T)
+				p = 1/(1 + np.exp(-0.1*v))
+				A1.append(p)
+
+			A1 = np.array(A1)
+
+			v = np.dot(A1[-1],woutput.T)
+			A2 = np.array(1/(1 + np.exp(-0.1*v)))
+
+			# count error
+			e = targetjob[target-1] - A2
+			MSE += np.sum(e**2)
+
+			# Backward
+			D2 = A2*(1 - A2)*e
+			woutput += (lr * np.array([D2]).T.dot([A1[-1]]))
+
+			D1 = [D2.dot(woutput) * A1[-1]*(1-A1[-1])]
+			for hlayer in range(len(hidden_neuron)-1):
+				D1.append(D1[hlayer].dot(whidden[-(hlayer+1)]) * A1[-(hlayer+2)]*(1-A1[-(hlayer+2)]))
+				whidden[-(hlayer+1)] += (lr * np.array([D1[hlayer]]).T.dot([A1[-(hlayer+2)]]))
+			whidden[0] += (lr * np.array([D1[-1]]).T.dot([cd[:-1]]))
+
+		MSE = MSE/data.shape[0]
+		# pl.plot(i, MSE)
+		print MSE
+	return whidden,woutput
+
+def ann_test(data, model):
+	whidden,woutput = model[:2]
+	if(len(model) > 2):
+		b1,b2 = model[2:]
+
+	predict = []
 	for cd in data:
-		# Forward
-		p = cd[:-1]
-		target = cd[-1]
+		p = np.copy(cd)
 		A1 = []
-		for hlayer in range(len(hidden_neuron)):
-			v = np.sum(p * whidden[hlayer], axis=1) + bhidden[hlayer]
-			p = 1/(1 + np.exp(-v))
+		for hlayer in range(len(whidden)):
+			v = np.dot(p,whidden[hlayer].T)
+			p = 1/(1 + np.exp(-0.1*v))
 			A1.append(p)
 
 		A1 = np.array(A1)
 
-		v = np.sum(p * woutput,axis=1) + boutput
-		A2 = np.array(1/(1 + np.exp(-v)))
+		v = np.dot(A1[-1],woutput.T)
+		A2 = np.array(1/(1 + np.exp(-0.1*v)))
+		predict.append(np.argmax(A2) + 1)
+	return predict
 
-		# count error
-		e = [1 if (i+1)==target else 0 for i in xrange(A2.shape[0])] - A2
-		MSE += np.sum(e)**2
-
-		# Backward
-		D2 = A2*(1 - A2)*e
-		D1 = []
-		for hlayer in range(len(hidden_neuron)):
-			d1temp = A1[-(hlayer+1)]
-	MSE = MSE/data.shape[0]
-
-
-data = np.genfromtxt('R15.csv',delimiter=',')
+data = np.genfromtxt('pathbased.csv',delimiter=',')
 model = ann_learn(data, 2)
+classification = ann_test(data[:,:-1], model)
 # classification = naive_bayes(data, model)
-# dataclassification = np.copy(data)
-# dataclassification[:,-1] = classification
-# visualize_data(data,'PathBased Plot')
-# visualize_data(dataclassification,'PathBased Naive Bayes')
-# print performance_calculator(0, data[:,-1], classification)
-# visualize_data(data,'PathBased DecisionBoundary with Naive Bayes',True,classification,[model,naive_bayes])
-# plt.show()
+dataclassification = np.copy(data)
+dataclassification[:,-1] = classification
+visualize_data(data,'R15 Plot')
+visualize_data(dataclassification,'R15 Ann')
+print "Micro f1 score:",performance_calculator(0, data[:,-1], classification)
+visualize_data(data,'R15 DecisionBoundary with ANN',True,classification,[model,ann_test])
+plt.show()
