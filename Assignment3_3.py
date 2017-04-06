@@ -102,9 +102,8 @@ def ann_learn(data, targetcol, bias = False):
 	hinput = [data.shape[1] - 1 if i == 0 else hidden_neuron[i-1] for i in range(len(hidden_neuron))]
 	whidden = np.array([[[rnd.random() for k in xrange(hinput[i])] for j in xrange(hidden_neuron[i])] for i in xrange(len(hidden_neuron))])
 	woutput = np.array([[rnd.random() for j in xrange(hidden_neuron[-1])] for i in xrange(output_neuron)])
-	if (bias):
-		bhidden = [[rnd.random() for j in xrange(hidden_neuron[i])]for i in xrange(len(hidden_neuron))]
-		boutput = [rnd.random() for i in xrange(output_neuron)]
+	bhidden = np.array([[rnd.random() if bias else 0 for j in xrange(hidden_neuron[i])]for i in xrange(len(hidden_neuron))])
+	boutput = np.array([rnd.random() if bias else 0 for i in xrange(output_neuron)])
 	MSE = 0
 
 	# start learning
@@ -115,13 +114,13 @@ def ann_learn(data, targetcol, bias = False):
 		target = cd[-1]
 		A1 = []
 		for hlayer in range(len(hidden_neuron)):
-			v = np.sum(p * whidden[hlayer], axis=1)
+			v = np.sum(p * whidden[hlayer], axis=1) + bhidden[hlayer]
 			p = 1/(1 + np.exp(-v))
 			A1.append(p)
 
 		A1 = np.array(A1)
 
-		v = np.sum(p * woutput,axis=1)
+		v = np.sum(p * woutput,axis=1) + boutput
 		A2 = np.array(1/(1 + np.exp(-v)))
 
 		# count error
